@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -45,12 +46,31 @@ fun DrawingCanvas(
             .fillMaxSize()
             .background(animatedCanvasBackgroundColor)
             .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    // Handle single tap -> create a dot
+                    val dotPath = Path().apply {
+                        addArc(
+                            Rect(
+                                left = offset.x - currentStrokeWidth() / 2,
+                                top = offset.y - currentStrokeWidth() / 2,
+                                right = offset.x + currentStrokeWidth() / 2,
+                                bottom = offset.y + currentStrokeWidth() / 2
+                            ),
+                            0f,
+                            360f
+                        )
+                    }
+                    onAddStroke(dotPath)
+                }
+            }
+
+            .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->
                         livePathPoints.clear()
-                        currentLivePath.reset() // Reset the live path
+                        currentLivePath.reset()
                         livePathPoints.add(offset)
-                        currentLivePath.moveTo(offset.x, offset.y) // Move to start for live path
+                        currentLivePath.moveTo(offset.x, offset.y)
                     },
                     onDrag = { change, _ ->
                         livePathPoints.add(change.position)
@@ -63,37 +83,25 @@ fun DrawingCanvas(
                     },
                     onDragEnd = {
                         if (livePathPoints.isNotEmpty()) {
-                            val finalPath = Path()
-                            if (livePathPoints.size == 1) {
-                                val point = livePathPoints.first()
-                                finalPath.addArc(
-                                    Rect(
-                                        left = point.x - currentStrokeWidth() / 2,
-                                        top = point.y - currentStrokeWidth() / 2,
-                                        right = point.x + currentStrokeWidth() / 2,
-                                        bottom = point.y + currentStrokeWidth() / 2
-                                    ),
-                                    0f,
-                                    360f
-                                )
-                            } else {
-                                finalPath.moveTo(livePathPoints.first().x, livePathPoints.first().y)
+                            val finalPath = Path().apply {
+                                moveTo(livePathPoints.first().x, livePathPoints.first().y)
                                 for (i in 1 until livePathPoints.size) {
                                     val p1 = livePathPoints[i - 1]
                                     val p2 = livePathPoints[i]
-                                    finalPath.quadraticBezierTo(
+                                    quadraticBezierTo(
                                         p1.x, p1.y,
                                         (p1.x + p2.x) / 2, (p1.y + p2.y) / 2
                                     )
                                 }
                             }
-                            onAddStroke(finalPath) // Pass the path directly
+                            onAddStroke(finalPath)
                             livePathPoints.clear()
-                            currentLivePath.reset() // Reset for next stroke
+                            currentLivePath.reset()
                         }
                     }
                 )
             }
+
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             strokes.forEach { stroke ->
